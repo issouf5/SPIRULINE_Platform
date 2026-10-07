@@ -1,0 +1,82 @@
+name: Vérifier et publier SPIRULINE
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: spiruline-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VITE_BASE_PATH: /SPIRULINE_Platform/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Audit des dépendances
+        run: npm audit --audit-level=high
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapport-navigateur
+          path: playwright-report/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spiruline-web
+          path: dist/
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: dist/
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Vérifier le site publié et son JavaScript
+        env:
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          node --input-type=module <<'NODE'
+          const url = process.env.SITE_URL;
+          let failure;
+          for (let attempt = 0; attempt < 6; attempt++) {
+            try {
+              const response = await fetch(url);
+              if (!response.ok) throw Error('Page HTTP ' + response.status);
+              const html = await response.text();
+              if (!html.includes('<title>SPIRULINE Platform</title>')) throw Error('Titre incorrect');
+              const asset = html.match(/src="([^"]+\.js)"/)?.[1];
+              if (!asset) throw Error('Script principal introuvable');
+              const script = await fetch(new URL(asset, url));
+              if (!script.ok || !(script.headers.get('content-type') || '').includes('javascript')) throw Error('JavaScript inaccessible');
+              console.log('Site et JavaScript accessibles : ' + url);
+              process.exit(0);
+            } catch (error) {
+              failure = error;
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+          }
+          throw failure;
+          NODE
