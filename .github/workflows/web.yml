@@ -20,11 +20,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install
+      - run: npm ci
       - name: Audit des dépendances
         run: npm audit --audit-level=high
-      - name: Conserver le verrou des dépendances
-        run: node -e "console.log('LOCKFILE_BASE64=' + require('fs').readFileSync('package-lock.json').toString('base64'))"
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
@@ -38,10 +36,6 @@ jobs:
         with:
           name: spiruline-web
           path: dist/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dependency-lock
-          path: package-lock.json
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:
@@ -60,3 +54,29 @@ jobs:
       - uses: actions/configure-pages@v5
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Vérifier le site publié et son JavaScript
+        env:
+          SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          node --input-type=module <<'NODE'
+          const url = process.env.SITE_URL;
+          let failure;
+          for (let attempt = 0; attempt < 6; attempt++) {
+            try {
+              const response = await fetch(url);
+              if (!response.ok) throw Error('Page HTTP ' + response.status);
+              const html = await response.text();
+              if (!html.includes('<title>SPIRULINE Platform</title>')) throw Error('Titre incorrect');
+              const asset = html.match(/src="([^"]+\.js)"/)?.[1];
+              if (!asset) throw Error('Script principal introuvable');
+              const script = await fetch(new URL(asset, url));
+              if (!script.ok || !(script.headers.get('content-type') || '').includes('javascript')) throw Error('JavaScript inaccessible');
+              console.log('Site et JavaScript accessibles : ' + url);
+              process.exit(0);
+            } catch (error) {
+              failure = error;
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+          }
+          throw failure;
+          NODE

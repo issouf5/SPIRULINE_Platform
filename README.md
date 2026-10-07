@@ -7,13 +7,13 @@ Application web en français pour les producteurs de spiruline : espaces d’ent
 Node.js 22.12 ou supérieur.
 
 ```sh
-npm install
+npm ci
 npm test
 npm run build
 npm run dev
 ```
 
-Les versions directes sont fixées dans package.json. Le workflow conserve le package-lock.json généré en artifact ; le versionner pour figer aussi les dépendances transitives lors des prochaines installations.
+Le fichier package-lock.json fixe les versions directes et transitives validées. Le workflow utilise npm ci et bloque la publication en présence d’une vulnérabilité élevée ou critique.
 
 La configuration publique Supabase est incluse. Pour un autre projet, copier .env.example vers .env et adapter les variables. Ne jamais utiliser de clé service_role ni de clé secrète dans le navigateur.
 
@@ -46,7 +46,7 @@ La facturation d’abonnements SaaS, les pièces jointes et l’import d’ancie
 
 Le workflow .github/workflows/web.yml compile l’application et exécute les tests Node et navigateur. Sur main, il publie avec GitHub Pages.
 
-Dans GitHub : Settings → Pages → Source : GitHub Actions.
+GitHub Pages a été configuré avec Source : GitHub Actions.
 L’adresse attendue après un déploiement réussi est https://issouf5.github.io/SPIRULINE_Platform/ ; elle n’est pas garantie active avant le succès du workflow.
 
 Dans Supabase → Authentication → URL Configuration :
@@ -63,6 +63,8 @@ npm run build
 npx playwright install chromium
 npm run test:browser
 ```
+
+Validation du 7 octobre 2026 : compilation réussie, 10 tests unitaires et 12 tests navigateur réussis (ordinateur et mobile), audit npm sans vulnérabilité sur les versions verrouillées.
 
 Les tests navigateur simulent les réponses d’authentification sans créer de comptes réels ni envoyer d’e-mails. Tester ensuite un parcours réel avec une adresse contrôlée après configuration des URL et du SMTP.
 
