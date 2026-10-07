@@ -1,7 +1,7 @@
 name: Vérifier et publier SPIRULINE
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -21,6 +21,10 @@ jobs:
         with:
           node-version: '22'
       - run: npm install
+      - name: Audit des dépendances
+        run: npm audit --audit-level=high
+      - name: Conserver le verrou des dépendances
+        run: node -e "console.log('LOCKFILE_BASE64=' + require('fs').readFileSync('package-lock.json').toString('base64'))"
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium

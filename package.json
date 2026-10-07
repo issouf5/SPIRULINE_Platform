@@ -11,13 +11,13 @@
     "test:browser": "playwright test"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.49.1",
+    "@supabase/supabase-js": "^2.49.1",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
-    "vite": "7.1.12"
+    "vite": "^7.1.12"
   },
   "engines": {
     "node": ">=22.12.0"
