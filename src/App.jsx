@@ -3,9 +3,10 @@ import React,{useEffect,useState} from 'react';
 import {db,rpc,spaces,errorMessage,rootUrl} from './api.js';
 import {Field,Notice} from './ui.jsx';
 import Platform from './Platform.jsx';
+import SocialLogin from './SocialLogin.jsx';
 function Auth({recovery,onRecovered}){
  const [mode,setMode]=useState(recovery?'recovery':'login'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[info,setInfo]=useState('');
- async function submit(e){e.preventDefault();const form=new FormData(e.currentTarget);setBusy(true);setError('');setInfo('');try{
+ async function submit(e){e.preventDefault();if(busy)return;const form=new FormData(e.currentTarget);setBusy(true);setError('');setInfo('');try{
  const email=String(form.get('email')||'').trim(),password=String(form.get('password')||'');let result;
  if(mode==='login')result=await db.auth.signInWithPassword({email,password});
  if(mode==='signup'){result=await db.auth.signUp({email,password,options:{emailRedirectTo:rootUrl()}});if(!result.error&&!result.data.session)setInfo('Consultez votre messagerie pour confirmer votre adresse, puis connectez-vous.');}
@@ -14,11 +15,11 @@ function Auth({recovery,onRecovered}){
  if(result?.error)throw result.error;
  }catch(err){setError(errorMessage(err));}finally{setBusy(false);}}
  const change=m=>{setMode(m);setError('');setInfo('');};
- return <div className="auth"><section className="auth-intro"><div className="brand"><b className="symbol">S</b><div>SPIRULINE<small>PLATFORM</small></div></div><div><p className="eyebrow">DE LA CULTURE À LA COMMANDE</p><h1>Votre production.<br/>Votre équipe.<br/><em>Un seul espace.</em></h1><p>Suivez chaque lot, gardez un stock fiable et travaillez ensemble, où que vous soyez.</p><div className="pills"><span>Production</span><span>Traçabilité</span><span>Ventes</span></div></div><small>La gestion quotidienne des producteurs de spiruline.</small></section><section className="auth-content"><form className="auth-card" onSubmit={submit}><p className="eyebrow">BIENVENUE SUR SPIRULINE</p><h2>{{login:'Retrouvez votre espace',signup:'Créez votre compte',forgot:'Mot de passe oublié ?',recovery:'Nouveau mot de passe'}[mode]}</h2><p className="muted">Votre entreprise, vos données et votre équipe.</p><Notice>{error}</Notice><Notice success>{info}</Notice>{mode!=='recovery'&&<Field label="Adresse e-mail" name="email" type="email" required autoComplete="email" maxLength={200}/>}
- {mode!=='forgot'&&<Field label="Mot de passe" name="password" type="password" required minLength={mode==='login'?1:12} autoComplete={mode==='login'?'current-password':'new-password'}/>}
- {['signup','recovery'].includes(mode)&&<small>Au moins 12 caractères.</small>}
+ return <div className="auth"><section className="auth-intro"><div className="brand"><b className="symbol">S</b><div>SPIRULINE<small>PLATFORM</small></div></div><div><p className="eyebrow">DE LA CULTURE À LA COMMANDE</p><h1>Votre production.<br/>Votre équipe.<br/><em>Un seul espace.</em></h1><p>Suivez chaque lot, gardez un stock fiable et travaillez ensemble, où que vous soyez.</p><div className="pills"><span>Production</span><span>Traçabilité</span><span>Ventes</span></div></div><small>La gestion quotidienne des producteurs de spiruline.</small></section><section className="auth-content"><form className="auth-card" onSubmit={submit}><p className="eyebrow">BIENVENUE SUR SPIRULINE</p><h2>{{login:'Retrouvez votre espace',signup:'Créez votre compte',forgot:'Mot de passe oublié ?',recovery:'Nouveau mot de passe'}[mode]}</h2><p className="muted">Votre entreprise, vos données et votre équipe.</p><Notice>{error}</Notice><Notice success>{info}</Notice>{['login','signup'].includes(mode)&&<SocialLogin busy={busy} setBusy={setBusy} onError={setError}/>}{mode!=='recovery'&&<Field label="Adresse e-mail" name="email" type="email" required autoComplete="email" maxLength={200}/>}
+ {mode!=='forgot'&&<Field label="Mot de passe" name="password" type="password" required minLength={mode==='login'?1:8} autoComplete={mode==='login'?'current-password':'new-password'}/>}
+ {['signup','recovery'].includes(mode)&&<small>Au moins 8 caractères.</small>}
  <button className="primary full" disabled={busy}>{busy?'Veuillez patienter…':{login:'Se connecter',signup:'Créer mon compte',forgot:'Recevoir les instructions',recovery:'Enregistrer le mot de passe'}[mode]}</button>
- {!recovery&&<div className="auth-links">{mode==='login'?<><button type="button" className="quiet" onClick={()=>change('forgot')}>Mot de passe oublié</button><button type="button" className="quiet" onClick={()=>change('signup')}>Créer un compte</button></>:<button type="button" className="quiet" onClick={()=>change('login')}>Retour à la connexion</button>}</div>}</form></section></div>;
+ {!recovery&&<div className="auth-links">{mode==='login'?<><button type="button" className="quiet" disabled={busy} onClick={()=>change('forgot')}>Mot de passe oublié</button><button type="button" className="quiet" disabled={busy} onClick={()=>change('signup')}>Créer un compte</button></>:<button type="button" className="quiet" disabled={busy} onClick={()=>change('login')}>Retour à la connexion</button>}</div>}</form></section></div>;
 }
 function Onboarding({invite,reload,cancel}){
  const [mode,setMode]=useState(invite?'join':'create'),[busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -39,8 +40,16 @@ function WorkspaceApp({user}){
 }
 export default function App(){
  const [session,setSession]=useState(null),[ready,setReady]=useState(false),[recovery,setRecovery]=useState(false),[error,setError]=useState('');
- useEffect(()=>{const invite=new URLSearchParams(location.hash.slice(1)).get('invite');if(invite&&/^[0-9a-f]{64}$/.test(invite)){sessionStorage.setItem('sp.invite',invite);history.replaceState(null,'',location.pathname+location.search);}
- let alive=true;db.auth.getSession().then(({data,error})=>{if(!alive)return;if(error)setError(errorMessage(error));setSession(data.session);setReady(true);}).catch(e=>{if(alive){setError(errorMessage(e));setReady(true);}});
+ useEffect(()=>{
+ const fragment=new URLSearchParams(location.hash.slice(1)),query=new URLSearchParams(location.search);
+ const authError=fragment.get('error')||query.get('error');
+ if(authError){
+  setError(authError==='access_denied'?'Connexion annulée. Réessayez ou utilisez votre adresse e-mail.':'La connexion avec ce service a échoué. Réessayez ou utilisez votre adresse e-mail.');
+  for(const key of ['error','error_code','error_description']){fragment.delete(key);query.delete(key);}
+  history.replaceState(null,'',location.pathname+(query.size?'?'+query.toString():'')+(fragment.size?'#'+fragment.toString():''));
+ }
+ const invite=new URLSearchParams(location.hash.slice(1)).get('invite');if(invite&&/^[0-9a-f]{64}$/.test(invite)){sessionStorage.setItem('sp.invite',invite);history.replaceState(null,'',location.pathname+location.search);}
+ let alive=true;db.auth.getSession().then(({data,error})=>{if(!alive)return;if(error&&!authError)setError(errorMessage(error));setSession(data.session);setReady(true);}).catch(e=>{if(alive){if(!authError)setError(errorMessage(e));setReady(true);}});
  const {data:{subscription}}=db.auth.onAuthStateChange((event,s)=>{if(!alive)return;setSession(s);setReady(true);if(event==='PASSWORD_RECOVERY')setRecovery(true);if(event==='SIGNED_OUT')setRecovery(false);});
  return()=>{alive=false;subscription.unsubscribe();};},[]);
  if(!ready)return <main className="center" role="status">Ouverture de SPIRULINE…</main>;

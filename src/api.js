@@ -1,6 +1,14 @@
 
 import {createClient} from '@supabase/supabase-js';
-export const db=createClient(import.meta.env.VITE_SUPABASE_URL||'https://wimethopqfbzbwvgiqet.supabase.co',import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||'sb_publishable_Y4MlIlHWGFeLQv6LwMDkLg_F3dA7kmR');
+const supabaseUrl=import.meta.env.VITE_SUPABASE_URL||'https://wimethopqfbzbwvgiqet.supabase.co';
+const publishableKey=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY||'sb_publishable_Y4MlIlHWGFeLQv6LwMDkLg_F3dA7kmR';
+export const db=createClient(supabaseUrl,publishableKey);
+export async function loginProviders(signal){
+ const response=await fetch(supabaseUrl+'/auth/v1/settings',{headers:{apikey:publishableKey},signal});
+ if(!response.ok)throw Error('Services de connexion indisponibles.');
+ const settings=await response.json();
+ return ['google','facebook'].filter(provider=>settings.external?.[provider]===true);
+}
 export const rootUrl=()=>new URL(import.meta.env.BASE_URL,location.origin).href;
 export function errorMessage(e){
  if(e?.code==='23503')return 'Cet élément est lié à un autre enregistrement. Vérifiez les références avant de le modifier ou supprimer.';
