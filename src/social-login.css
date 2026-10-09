@@ -1,0 +1,8 @@
+
+.social-login{display:grid;gap:10px;margin-top:22px}
+.social-button{display:flex;align-items:center;justify-content:center;gap:12px;min-height:46px;background:white;font-size:14px}
+.social-symbol{font-family:Arial,sans-serif;font-weight:700;font-size:22px;width:24px;line-height:1}
+.social-button.google .social-symbol{color:#4285f4}
+.social-button.facebook .social-symbol{color:#1877f2}
+.auth-divider{display:flex;align-items:center;gap:12px;color:#7a8975;font-size:11px;margin:22px 0}
+.auth-divider:before,.auth-divider:after{content:'';height:1px;background:var(--line);flex:1}
